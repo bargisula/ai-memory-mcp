@@ -124,7 +124,14 @@ ai-memory reindex [--embed]       從 notes/ 重建索引
 ai-memory handoff <project>       印出最新交接（見下方 hook）
 ai-memory search "<words>"        關鍵字搜尋，輸出 JSON
 ai-memory audit                   讀取稽核紀錄，輸出 JSON
+ai-memory web [--port N]          用瀏覽器開啟唯讀的稽核網頁
 ```
+
+### 稽核網頁
+
+`ai-memory web` 會在 `http://127.0.0.1:8765` 開一個小網頁，顯示誰在什麼時候查了什麼，
+可依呼叫者、專案、工具、狀態、查詢文字篩選。網頁是唯讀的，只監聽 127.0.0.1，
+會拒絕 `Host` 標頭不是本機的請求（防 DNS rebinding），介面依瀏覽器語言顯示中文或英文。
 
 ### 讓交接自動載入（Claude Code）
 

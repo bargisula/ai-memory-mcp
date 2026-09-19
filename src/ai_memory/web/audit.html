@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ai-memory / read audit</title>
+  <style>
+    :root { --ink:#17222d; --muted:#6e7b86; --paper:#f4f7f5; --line:#dce5e3; --teal:#007f7b; --teal-soft:#d8f1ed; --orange:#e56c42; --orange-soft:#fff0e8; --shadow:0 18px 45px rgba(22,53,56,.09); }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--ink); background:radial-gradient(circle at 90% 0%,rgba(0,127,123,.12),transparent 27rem),var(--paper); font-family:"Segoe UI","Noto Sans TC",sans-serif; }
+    .shell { max-width:1340px; margin:0 auto; padding:38px 28px 60px; }
+    .eyebrow { color:var(--teal); font:700 12px/1.2 Consolas,monospace; letter-spacing:.16em; text-transform:uppercase; }
+    h1 { max-width:720px; margin:10px 0 12px; font:600 clamp(34px,5vw,68px)/.98 Georgia,"Noto Serif TC",serif; letter-spacing:-.045em; }
+    .lede { max-width:650px; color:var(--muted); font-size:16px; line-height:1.7; }
+    .hero { display:flex; justify-content:space-between; gap:28px; align-items:end; margin-bottom:30px; }
+    .signal { min-width:180px; padding:18px 20px; border:1px solid var(--line); background:rgba(255,255,255,.68); box-shadow:var(--shadow); }
+    .signal .dot { display:inline-block; width:9px; height:9px; margin-right:8px; border-radius:50%; background:var(--orange); }
+    .signal p { margin:8px 0 0; color:var(--muted); font:12px Consolas,monospace; }
+    .dashboard { display:grid; grid-template-columns:265px 1fr; gap:18px; align-items:start; }
+    .panel { border:1px solid var(--line); background:rgba(255,255,255,.86); box-shadow:var(--shadow); }
+    .filters { padding:20px; position:sticky; top:18px; }
+    .filters h2,.results h2 { margin:0 0 18px; font-size:14px; letter-spacing:.08em; text-transform:uppercase; }
+    label { display:block; margin:15px 0 7px; color:var(--muted); font:700 11px Consolas,monospace; letter-spacing:.08em; text-transform:uppercase; }
+    input,select,button { width:100%; border:1px solid var(--line); border-radius:0; background:#fff; color:var(--ink); font:inherit; }
+    input,select { padding:11px 12px; outline:none; }
+    input:focus,select:focus { border-color:var(--teal); box-shadow:0 0 0 3px var(--teal-soft); }
+    button { margin-top:20px; padding:12px; border:0; color:#fff; background:var(--teal); cursor:pointer; font-weight:700; }
+    button:hover { background:#006561; }
+    button:focus-visible { outline:3px solid var(--orange); outline-offset:2px; }
+    .hint { margin:16px 0 0; color:var(--muted); font-size:12px; line-height:1.6; }
+    .results { padding:20px; min-width:0; }
+    .result-head { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .refresh { width:auto; margin:0; padding:8px 13px; color:var(--teal); border:1px solid var(--teal); background:transparent; font-size:12px; }
+    .refresh:hover { color:#fff; }
+    .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:22px; }
+    .stat { padding:15px; border-left:3px solid var(--teal); background:#f2faf8; }
+    .stat:nth-child(2) { border-color:var(--orange); background:var(--orange-soft); }
+    .stat:nth-child(3),.stat:nth-child(4) { border-color:#647a95; }
+    .stat strong { display:block; font:600 28px Georgia,serif; }
+    .stat span { color:var(--muted); font:11px Consolas,monospace; }
+    .table-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th { padding:11px 10px; color:var(--muted); border-bottom:2px solid var(--ink); text-align:left; font:700 11px Consolas,monospace; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; }
+    td { padding:14px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+    tbody tr:hover { background:#f4fbfa; }
+    .query { min-width:220px; max-width:390px; font-weight:700; overflow-wrap:anywhere; }
+    .meta { color:var(--muted); font:11px/1.55 Consolas,monospace; white-space:nowrap; }
+    .badge { display:inline-block; padding:4px 7px; color:var(--teal); background:var(--teal-soft); font:11px Consolas,monospace; }
+    .badge.fail { color:#a64125; background:var(--orange-soft); }
+    .empty,.error { padding:42px 20px; color:var(--muted); text-align:center; }
+    .error { color:#a64125; background:var(--orange-soft); }
+    @media (max-width:850px) { .shell{padding:26px 16px 42px}.hero{display:block}.signal{margin-top:20px}.dashboard{grid-template-columns:1fr}.filters{position:static}.stats{grid-template-columns:repeat(2,1fr)} }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <div class="eyebrow">ai-memory / read audit</div>
+        <h1 data-t="h1"></h1>
+        <p class="lede" data-t="lede"></p>
+      </div>
+      <div class="signal"><span class="dot"></span><strong id="connection"></strong><p>LOCAL · READ ONLY</p></div>
+    </section>
+    <section class="dashboard">
+      <form class="panel filters" id="filters">
+        <h2 data-t="narrow"></h2>
+        <label for="query" data-t="fQuery"></label><input id="query" name="query" data-p="pQuery" />
+        <label for="llm" data-t="fLlm"></label><input id="llm" name="llm" data-p="pLlm" />
+        <label for="project" data-t="fProject"></label><input id="project" name="project" data-p="pProject" />
+        <label for="tool" data-t="fTool"></label>
+        <select id="tool" name="tool"><option value="" data-t="allTools"></option><option>search_memory</option><option>search_memory_semantic</option><option>read_memory</option><option>get_handoff</option><option>recent</option><option>list_projects</option></select>
+        <label for="status" data-t="fStatus"></label>
+        <select id="status" name="status"><option value="" data-t="all"></option><option value="success" data-t="okLabel"></option><option value="failed" data-t="failLabel"></option></select>
+        <label for="limit" data-t="fLimit"></label>
+        <select id="limit" name="limit"><option>50</option><option selected>100</option><option>250</option><option>500</option></select>
+        <button type="submit" data-t="search"></button>
+        <p class="hint" data-t="hint"></p>
+      </form>
+      <section class="panel results">
+        <div class="result-head"><h2 data-t="trail"></h2><button class="refresh" id="refresh" type="button" data-t="refresh"></button></div>
+        <div class="stats">
+          <div class="stat"><strong id="total">-</strong><span data-t="sTotal"></span></div>
+          <div class="stat"><strong id="unique">-</strong><span data-t="sUnique"></span></div>
+          <div class="stat"><strong id="callers">-</strong><span data-t="sCallers"></span></div>
+          <div class="stat"><strong id="projects">-</strong><span data-t="sProjects"></span></div>
+        </div>
+        <div id="output"></div>
+      </section>
+    </section>
+  </main>
+  <script>
+    const STRINGS = {
+      en: {
+        h1: 'Who read<br />what?', lede: 'Read audit only: which AI, at what time, asked what about which project, and how many results came back. Result contents are never logged.',
+        narrow: 'Narrow down', fQuery: 'Query text', fLlm: 'Caller', fProject: 'Project', fTool: 'Tool', fStatus: 'Status', fLimit: 'Rows',
+        pQuery: 'e.g. sqlite', pLlm: 'e.g. Claude', pProject: 'e.g. my-app', allTools: 'All tools', all: 'All', okLabel: 'Success', failLabel: 'Failed',
+        search: 'Search audit log', hint: 'Only reads made through the audit-enabled tools appear here. Query text is kept to the first 500 characters.',
+        trail: 'Read trail', refresh: 'Refresh', sTotal: 'MATCHING RECORDS', sUnique: 'DISTINCT QUERIES', sCallers: 'CALLERS', sProjects: 'PROJECTS',
+        cols: ['Time', 'Who', 'Tool', 'Project', 'Query', 'Results', 'Status'], results: n => n + (n === 1 ? ' result' : ' results'),
+        loading: 'Loading audit data...', empty: 'No matching reads. Loosen the filters, or wait for the next AI query.',
+        connecting: 'Loading', connected: 'Connected', offline: 'Offline', errorHint: 'Check that the ai-memory web server is still running.',
+        unmarked: 'unlabeled', unspecified: 'unspecified', noQuery: '(no query text)',
+      },
+      zh: {
+        h1: '記憶被誰<br />查過什麼？', lede: '這裡只看讀取稽核紀錄：哪個 AI 在什麼時間，對哪個專案提出了什麼查詢，以及拿回幾筆結果。不會記錄結果內容。',
+        narrow: '縮小範圍', fQuery: '查詢文字', fLlm: '呼叫者', fProject: '專案', fTool: '工具', fStatus: '狀態', fLimit: '顯示筆數',
+        pQuery: '例如：MCP、決策、Markdown', pLlm: '例如：Claude', pProject: '例如：my-app', allTools: '全部工具', all: '全部', okLabel: '成功', failLabel: '失敗',
+        search: '查詢稽核紀錄', hint: '只有透過具稽核功能的工具所做的讀取才會出現在這裡。查詢內容只保留前 500 字。',
+        trail: '查詢軌跡', refresh: '重新整理', sTotal: '符合紀錄', sUnique: '不同查詢', sCallers: '呼叫者', sProjects: '專案',
+        cols: ['時間', '誰', '工具', '專案', '查詢內容', '結果', '狀態'], results: n => n + ' 筆',
+        loading: '正在讀取稽核資料…', empty: '沒有符合的查詢紀錄。可以放寬篩選條件，或等下一次 AI 查詢。',
+        connecting: '讀取中', connected: '已連線', offline: '無法連線', errorHint: '請確認 ai-memory web 仍在執行。',
+        unmarked: '未標記', unspecified: '未指定', noQuery: '（無關鍵字）',
+      },
+    };
+    const T = STRINGS[(navigator.language || 'en').toLowerCase().startsWith('zh') ? 'zh' : 'en'];
+    document.documentElement.lang = T === STRINGS.zh ? 'zh-Hant' : 'en';
+    document.querySelectorAll('[data-t]').forEach(el => { el.innerHTML = T[el.dataset.t]; });
+    document.querySelectorAll('[data-p]').forEach(el => { el.placeholder = T[el.dataset.p]; });
+
+    const form = document.querySelector('#filters'), output = document.querySelector('#output'), connection = document.querySelector('#connection');
+    const esc = v => String(v ?? '').replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
+
+    function render(data) {
+      for (const [id, key] of [['total', 'total'], ['unique', 'unique_queries'], ['callers', 'callers'], ['projects', 'projects']]) {
+        document.querySelector('#' + id).textContent = data.stats[key];
+      }
+      if (!data.rows.length) { output.innerHTML = `<div class="empty">${esc(T.empty)}</div>`; return; }
+      const head = T.cols.map(c => `<th>${esc(c)}</th>`).join('');
+      const body = data.rows.map(r => `<tr>
+        <td class="meta">${esc(r.ts)}</td><td>${esc(r.llm || T.unmarked)}</td><td class="meta">${esc(r.tool)}</td><td>${esc(r.project || T.unspecified)}</td>
+        <td class="query">${esc(r.query || T.noQuery)}${r.error ? `<div class="meta">${esc(r.error)}</div>` : ''}</td>
+        <td><span class="badge">${esc(T.results(r.result_count))}</span></td>
+        <td><span class="badge ${r.ok ? '' : 'fail'}">${esc(r.ok ? T.okLabel : T.failLabel)}</span></td></tr>`).join('');
+      output.innerHTML = `<div class="table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+    }
+
+    async function load() {
+      connection.textContent = T.connecting;
+      try {
+        const response = await fetch('/api/audit?' + new URLSearchParams(new FormData(form)));
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'error');
+        render(data);
+        connection.textContent = T.connected;
+      } catch (error) {
+        output.innerHTML = `<div class="error">${esc(error.message)}<br />${esc(T.errorHint)}</div>`;
+        connection.textContent = T.offline;
+      }
+    }
+    output.innerHTML = `<div class="empty">${esc(T.loading)}</div>`;
+    form.addEventListener('submit', e => { e.preventDefault(); load(); });
+    document.querySelector('#refresh').addEventListener('click', load);
+    load();
+  </script>
+</body>
+</html>

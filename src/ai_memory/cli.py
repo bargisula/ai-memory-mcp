@@ -47,6 +47,12 @@ def cmd_audit(args) -> int:
     return 0
 
 
+def cmd_web(args) -> int:
+    from .web import serve
+
+    return serve(port=args.port, open_browser=not args.no_browser)
+
+
 def cmd_doctor(_args) -> int:
     failed = False
 
@@ -125,6 +131,11 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("audit", help="show the read audit log as JSON")
     p.add_argument("--limit", type=int, default=50)
     p.set_defaults(func=cmd_audit)
+
+    p = sub.add_parser("web", help="open a read-only local page for browsing the audit log")
+    p.add_argument("--port", type=int, default=8765)
+    p.add_argument("--no-browser", action="store_true", help="do not open a browser tab")
+    p.set_defaults(func=cmd_web)
 
     sub.add_parser("doctor", help="check the installation").set_defaults(func=cmd_doctor)
 

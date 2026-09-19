@@ -29,6 +29,9 @@ ai-memory-mcp = "ai_memory.server:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+ai_memory = ["web/*.html"]
+
 [tool.setuptools.dynamic]
 version = { attr = "ai_memory.__version__" }
 

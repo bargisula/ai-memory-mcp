@@ -213,7 +213,7 @@ def _full(row: sqlite3.Row) -> dict:
     return d
 
 
-def _like_escape(token: str) -> str:
+def like_escape(token: str) -> str:
     return token.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
@@ -244,7 +244,7 @@ def search(query: str, project: str = "", type_: str = "", limit: int = 10) -> l
             like_params = []
             for t in tokens:
                 like += " AND (title LIKE ? ESCAPE '\\' OR content LIKE ? ESCAPE '\\' OR tags LIKE ? ESCAPE '\\')"
-                pat = f"%{_like_escape(t)}%"
+                pat = f"%{like_escape(t)}%"
                 like_params += [pat, pat, pat]
             rows = conn.execute(
                 f"SELECT * FROM memories WHERE 1=1{like}{filters.replace('memories.', '')} "

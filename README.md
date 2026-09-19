@@ -126,7 +126,14 @@ ai-memory reindex [--embed]       rebuild the index from notes/
 ai-memory handoff <project>       print the newest handoff (see hook below)
 ai-memory search "<words>"        keyword search, JSON output
 ai-memory audit                   read audit log, JSON output
+ai-memory web [--port N]          open the read-only audit page in your browser
 ```
+
+### Audit page
+
+`ai-memory web` serves a small page at `http://127.0.0.1:8765` showing who read what and when, with filters for
+caller, project, tool, status and query text. It is read-only, listens on 127.0.0.1 only, refuses requests whose
+`Host` header is not loopback (DNS-rebinding protection), and follows your browser language (English or 繁體中文).
 
 ### Make handoffs load automatically (Claude Code)
 
