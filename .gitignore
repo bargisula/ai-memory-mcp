@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+
+# Your memories are data, never code. Keep them out of this repo.
+notes/
+*.db
+*.db-wal
+*.db-shm
+.env
+JARVIS-WORKLOG.md
