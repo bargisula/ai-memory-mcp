@@ -1,5 +1,7 @@
 # ai-memory-mcp
 
+**English** | [繁體中文](README.zh-TW.md)
+
 Local, Markdown-first shared memory for AI coding agents, served over [MCP](https://modelcontextprotocol.io).
 
 Every session of every tool (Claude Code, Codex CLI, Copilot CLI, ...) starts with amnesia. This gives them one
@@ -22,7 +24,7 @@ your project.
 Requires Python 3.10+.
 
 ```bash
-git clone <this repository>
+git clone https://github.com/bargisula/ai-memory-mcp.git
 cd ai-memory-mcp
 pipx install .          # or: pip install .
 ai-memory doctor        # checks your setup
@@ -45,7 +47,7 @@ Any client that takes a JSON config (for example `~/.copilot/mcp-config.json`):
 ```
 
 If you use [uv](https://docs.astral.sh/uv/), you can skip the install and point the client at
-`uvx --from <path-or-git-url> ai-memory-mcp` instead.
+`uvx --from git+https://github.com/bargisula/ai-memory-mcp ai-memory-mcp` instead.
 
 The server ships usage instructions to the client automatically (check the handoff first, record decisions and
 failures as you go), so no extra prompt file is required.
