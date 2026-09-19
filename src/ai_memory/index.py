@@ -1,8 +1,10 @@
 """SQLite index over the Markdown notes. Deleting index.db loses nothing: it is rebuilt from notes/."""
 import hashlib
 import json
+import random
 import re
 import sqlite3
+import time
 from datetime import datetime, timezone
 
 from . import config, embed, store
@@ -68,18 +70,44 @@ def _init_schema(conn: sqlite3.Connection) -> None:
         pass  # SQLite without FTS5 trigram: search falls back to LIKE.
 
 
+def _retrying(fn, attempts: int = 40):
+    """Retry on SQLITE_BUSY/LOCKED. SQLite skips its busy timeout when waiting could deadlock
+    (e.g. two connections racing to switch a brand-new database into WAL mode), so the
+    timeout alone is not enough; the operations wrapped here are all idempotent."""
+    for attempt in range(attempts):
+        try:
+            return fn()
+        except sqlite3.OperationalError as exc:
+            msg = str(exc).lower()
+            if ("locked" not in msg and "busy" not in msg) or attempt == attempts - 1:
+                raise
+            time.sleep(0.05 * (attempt + 1) ** 0.5 + random.random() * 0.05)
+
+
+def _open() -> sqlite3.Connection:
+    config.home().mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(config.db_path(), timeout=10)
+    try:
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA busy_timeout=5000")
+        # Only switch when needed: the switch needs an exclusive lock, later connections skip it.
+        if conn.execute("PRAGMA journal_mode").fetchone()[0].lower() != "wal":
+            conn.execute("PRAGMA journal_mode=WAL")
+        _init_schema(conn)
+        # user_version stays 0 until the first full build finished, so an interrupted start
+        # (or a retry) can never leave existing notes unindexed.
+        if conn.execute("PRAGMA user_version").fetchone()[0] == 0:
+            _rebuild(conn, embed_missing=False)
+            conn.execute("PRAGMA user_version = 1")
+        return conn
+    except BaseException:
+        conn.close()
+        raise
+
+
 def connect() -> sqlite3.Connection:
     """Open the index, creating it (and rebuilding from notes/ if they already exist)."""
-    config.home().mkdir(parents=True, exist_ok=True)
-    fresh = not config.db_path().exists()
-    conn = sqlite3.connect(config.db_path(), timeout=10)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA busy_timeout=5000")
-    _init_schema(conn)
-    if fresh:
-        _rebuild(conn, embed_missing=False)
-    return conn
+    return _retrying(_open)
 
 
 def _upsert(conn: sqlite3.Connection, note: store.Note) -> None:
@@ -116,16 +144,20 @@ def _store_embedding(conn: sqlite3.Connection, note: store.Note, vec: list[float
 def index_note(note: store.Note) -> bool:
     """Index one freshly written note. Returns whether an embedding was stored."""
     vec = embed.embed(f"{note.title}\n{note.content}")
-    conn = connect()
-    try:
-        # Take the write lock before reading, so check-then-insert cannot race another writer.
-        conn.execute("BEGIN IMMEDIATE")
-        _upsert(conn, note)
-        if vec is not None:
-            _store_embedding(conn, note, vec)
-        conn.commit()
-    finally:
-        conn.close()
+
+    def write() -> None:
+        conn = connect()
+        try:
+            # Take the write lock before reading, so check-then-insert cannot race another writer.
+            conn.execute("BEGIN IMMEDIATE")
+            _upsert(conn, note)
+            if vec is not None:
+                _store_embedding(conn, note, vec)
+            conn.commit()
+        finally:
+            conn.close()
+
+    _retrying(write)
     return vec is not None
 
 
@@ -183,7 +215,7 @@ def reindex(embed_missing: bool = False) -> dict:
     """Rebuild the whole index from notes/. Safe to run any time, e.g. after hand-editing notes."""
     conn = connect()
     try:
-        return _rebuild(conn, embed_missing)
+        return _retrying(lambda: _rebuild(conn, embed_missing))
     finally:
         conn.close()
 

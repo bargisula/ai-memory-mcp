@@ -161,6 +161,7 @@ def test_concurrent_writers_on_a_fresh_home_all_get_indexed():
     with ThreadPoolExecutor(12) as pool:
         results = list(pool.map(lambda i: server.record_memory("race", "progress", "same title", f"body {i}"), range(24)))
 
-    assert all(r.get("indexed") is True for r in results), [r for r in results if not r.get("indexed")]
+    problems = [r.get("warning") or r.get("error") or "unknown" for r in results if r.get("indexed") is not True]
+    assert not problems, "\n".join(problems)
     stats = index.stats()
     assert stats["notes_on_disk"] == stats["notes_indexed"] == 24
